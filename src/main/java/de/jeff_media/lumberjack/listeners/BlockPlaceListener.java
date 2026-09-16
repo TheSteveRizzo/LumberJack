@@ -1,17 +1,19 @@
 package de.jeff_media.lumberjack.listeners;
 
-import com.jeff_media.jefflib.BlockTracker;
-import com.jeff_media.jefflib.NBTAPI;
 import de.jeff_media.lumberjack.LumberJack;
 import de.jeff_media.lumberjack.NBTKeys;
-import org.bukkit.Bukkit;
+import de.jeff_media.lumberjack.utils.BlockTracker;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
+import org.bukkit.persistence.PersistentDataType;
 
 public class BlockPlaceListener implements Listener {
 
@@ -21,21 +23,15 @@ public class BlockPlaceListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onLogStrip(BlockPlaceEvent event) {
-        if(event.getBlockReplacedState().getType().isAir()) return;
-        String typeName = event.getBlock().getType().name();
-        if(!(typeName.endsWith("_LOG") || typeName.endsWith("_WOOD") || typeName.endsWith("_STEM") || typeName.endsWith("_HYPHAE"))) return;
-        if(!BlockTracker.isTrackedBlockType(event.getBlock().getType())) return;
-        if(BlockTracker.isPlayerPlacedBlock(event.getBlock())) return;
-
-        final Block placedBlock = event.getBlock();
-        Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () -> {
-            if(placedBlock.getType().name().startsWith("STRIPPED_")) {
-                BlockTracker.setPlayerPlacedBlock(placedBlock, false);
-                plugin.getCustomDropManager().doCustomDrops(placedBlock.getLocation(), placedBlock.getType());
-            }
-        },1L);
+    // Stripping logs with an axe fires an EntityChangeBlockEvent
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onLogStrip(EntityChangeBlockEvent event) {
+        if(!(event.getEntity() instanceof Player)) return;
+        Block block = event.getBlock();
+        if(!BlockTracker.isTrackedBlockType(block.getType())) return;
+        if(block.getType().name().startsWith("STRIPPED_") || !event.getTo().name().startsWith("STRIPPED_")) return;
+        if(BlockTracker.isPlayerPlacedBlock(block)) return;
+        plugin.getCustomDropManager().doCustomDrops(block.getLocation(), event.getTo());
     }
 
 
@@ -53,7 +49,7 @@ public class BlockPlaceListener implements Listener {
 
             FallingBlock fallingBlock = (FallingBlock) entity;
 
-            if (!NBTAPI.hasNBT(fallingBlock, NBTKeys.IS_FALLING_LOG)) {
+            if (!fallingBlock.getPersistentDataContainer().has(new NamespacedKey(plugin, NBTKeys.IS_FALLING_LOG), PersistentDataType.STRING)) {
                 continue;
             }
 

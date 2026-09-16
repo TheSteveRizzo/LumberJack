@@ -11,7 +11,16 @@ leaves:
   birch:
     - 1%golden_apple
     - 0.1%enchanted_golden_apple
-  dark:
+  dark_oak:
+    - 1%golden_apple
+    - 0.1%enchanted_golden_apple
+  pale_oak:
+    - 1%golden_apple
+    - 0.1%enchanted_golden_apple
+  cherry:
+    - 1%golden_apple
+    - 0.1%enchanted_golden_apple
+  mangrove:
     - 1%golden_apple
     - 0.1%enchanted_golden_apple
   jungle:
@@ -46,6 +55,12 @@ stripping:
   oak:
     - 100%stick
   spruce:
+    - 100%stick
+  pale_oak:
+    - 100%stick
+  cherry:
+    - 100%stick
+  mangrove:
     - 100%stick
   crimson:
     - 20%crimson_fungus

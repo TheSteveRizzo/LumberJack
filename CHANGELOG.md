@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.5.0
+- Updated to Spigot API 1.21.11 / Java 21
+- Added pale oak and mangrove trees, copper axes (requires-at-least: COPPER)
+- Replaced JeffLib and SpigotUpdateChecker (no longer available) with CustomBlockData and built-in code
+- Removed the update checker (check-for-updates / check-interval)
+- Fixed trunk scanning stopping at Y=0 instead of the world's minimum height
+
 ## 5.2.0
 - Added 1.19 support
   - Note: gravity for mangrove trees is not working properly yet. Full support for mangroves will be added in the next update. 

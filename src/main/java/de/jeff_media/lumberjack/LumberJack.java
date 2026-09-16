@@ -1,28 +1,24 @@
 package de.jeff_media.lumberjack;
 
 import com.google.common.base.Enums;
-import com.jeff_media.jefflib.BlockTracker;
-import com.jeff_media.jefflib.JeffLib;
-import com.jeff_media.jefflib.data.McVersion;
-import com.jeff_media.jefflib.pluginhooks.PlaceholderAPIUtils;
 import com.jeff_media.morepersistentdatatypes.DataType;
 import de.jeff_media.lumberjack.commands.CommandLumberjack;
 import de.jeff_media.lumberjack.config.ConfigUpdater;
 import de.jeff_media.lumberjack.config.Messages;
 import de.jeff_media.lumberjack.data.PlayerSetting;
 import de.jeff_media.lumberjack.hooks.FarmLimiterListener;
+import de.jeff_media.lumberjack.hooks.PlaceholderAPIHook;
 import de.jeff_media.lumberjack.listeners.BlockBreakListener;
 import de.jeff_media.lumberjack.listeners.BlockPlaceListener;
 import de.jeff_media.lumberjack.listeners.DecayListener;
 import de.jeff_media.lumberjack.listeners.PlayerListener;
+import de.jeff_media.lumberjack.utils.BlockTracker;
 import de.jeff_media.lumberjack.utils.TreeUtils;
-import de.jeff_media.updatechecker.UpdateChecker;
-import de.jeff_media.updatechecker.UserAgentBuilder;
 import org.bstats.bukkit.Metrics;
+import org.bstats.charts.SimplePie;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -36,7 +32,6 @@ import org.bukkit.util.Vector;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-import java.util.function.BiFunction;
 
 
 public class LumberJack extends JavaPlugin {
@@ -51,18 +46,20 @@ public class LumberJack extends JavaPlugin {
             "SPRUCE_LOG", "STRIPPED_SPRUCE_LOG", "SPRUCE_WOOD", "STRIPPED_SPRUCE_WOOD",
             "WARPED_STEM", "STRIPPED_WARPED_STEM", "WARPED_HYPHAE", "STRIPPED_WARPED_HYPHAE",
             "CRIMSON_STEM", "STRIPPED_CRIMSON_STEM", "CRIMSON_HYPHAE", "STRIPPED_CRIMSON_HYPHAE",
-            "CHERRY_LOG", "STRIPPED_CHERRY_LOG", "CHERRY_WOOD", "STRIPPED_CHERRY_WOOD"
+            "CHERRY_LOG", "STRIPPED_CHERRY_LOG", "CHERRY_WOOD", "STRIPPED_CHERRY_WOOD",
+            "MANGROVE_LOG", "STRIPPED_MANGROVE_LOG", "MANGROVE_WOOD", "STRIPPED_MANGROVE_WOOD",
+            "PALE_OAK_LOG", "STRIPPED_PALE_OAK_LOG", "PALE_OAK_WOOD", "STRIPPED_PALE_OAK_WOOD"
     };
-    private static final int SPIGOT_RESOURCE_ID = 60306;
     private static LumberJack instance;
     public final Vector fallingBlockOffset = new Vector(0.5, 0.0, 0.5);
     public final int maxTreeSize = 50;
     @SuppressWarnings("FieldCanBeLocal")
-    private final int currentConfigVersion = 14;
+    private final int currentConfigVersion = 15;
     public TreeUtils treeUtils;
     public Messages messages;
     public ArrayList<String> disabledWorlds;
     public ArrayList<String> treeBlockNames;
+    public final Set<Material> treeBlockTypes = EnumSet.noneOf(Material.class);
     boolean gravityEnabledByDefault = false;
     HashMap<Player, PlayerSetting> perPlayerSettings;
     boolean debug = false;
@@ -88,20 +85,12 @@ public class LumberJack extends JavaPlugin {
     @Override
     public void onEnable() {
 
-        if (!McVersion.current().isAtLeast(1,16,3)) {
-            getLogger().severe("LumberJack requires AT LEAST Minecraft version 1.16.3!");
-            Bukkit.getPluginManager().disablePlugin(this);
-            return;
-        }
-
         instance = this;
-        JeffLib.registerBlockTracker();
 
         // %lumberjack_enabled%
-        PlaceholderAPIUtils.register("enabled", (player) -> {
-            if(!player.isOnline()) return "false";
-            return String.valueOf(getPlayerSetting(player.getPlayer()).gravityEnabled);
-        });
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            new PlaceholderAPIHook(this).register();
+        }
 
         customDropManager = new CustomDropManager();
 
@@ -112,6 +101,13 @@ public class LumberJack extends JavaPlugin {
         treeBlockNames.addAll(Arrays.asList(treeBlocks));
 
         //treeGroundBlockNames = (ArrayList<String>) getConfig().getStringList("tree-ground-blocks");
+        for (String name : treeBlockNames) {
+            Material mat = Enums.getIfPresent(Material.class, name).orNull();
+            if (mat != null) {
+                treeBlockTypes.add(mat);
+            }
+        }
+
         messages = new Messages(this);
         treeUtils = new TreeUtils(this);
         BlockBreakListener blockBreakListener = new BlockBreakListener(this);
@@ -130,25 +126,15 @@ public class LumberJack extends JavaPlugin {
         gravityEnabledByDefault = getConfig().getBoolean("gravity-enabled-by-default");
 
         Metrics metrics = new Metrics(this, 3184);
-        metrics.addCustomChart(new Metrics.SimplePie("gravity_enabled_by_default", () -> Boolean.toString(getConfig().getBoolean("gravity-enabled-by-default"))));
-        metrics.addCustomChart(new Metrics.SimplePie("using_matching_config", () -> Boolean.toString(usingMatchingConfig)));
-        metrics.addCustomChart(new Metrics.SimplePie("show_message_again_after_logout", () -> Boolean.toString(getConfig().getBoolean("show-message-again-after-logout"))));
-        metrics.addCustomChart(new Metrics.SimplePie("attached_logs_fall_down", () -> Boolean.toString(getConfig().getBoolean("attached-logs-fall-down"))));
-        metrics.addCustomChart(new Metrics.SimplePie("prevent_torch_exploit", () -> Boolean.toString(getConfig().getBoolean("prevent-torch-exploit"))));
+        metrics.addCustomChart(new SimplePie("gravity_enabled_by_default", () -> Boolean.toString(getConfig().getBoolean("gravity-enabled-by-default"))));
+        metrics.addCustomChart(new SimplePie("using_matching_config", () -> Boolean.toString(usingMatchingConfig)));
+        metrics.addCustomChart(new SimplePie("show_message_again_after_logout", () -> Boolean.toString(getConfig().getBoolean("show-message-again-after-logout"))));
+        metrics.addCustomChart(new SimplePie("attached_logs_fall_down", () -> Boolean.toString(getConfig().getBoolean("attached-logs-fall-down"))));
+        metrics.addCustomChart(new SimplePie("prevent_torch_exploit", () -> Boolean.toString(getConfig().getBoolean("prevent-torch-exploit"))));
 
-        UpdateChecker updateChecker = UpdateChecker.init(this, "https://api.jeff-media.de/lumberjack/latest-version.txt")
-                .setChangelogLink(SPIGOT_RESOURCE_ID)
-                .setDownloadLink(SPIGOT_RESOURCE_ID)
-                .setDonationLink("https://paypal.me/mfnalex")
-                .setUserAgent(UserAgentBuilder.getDefaultUserAgent());
-        if (Objects.requireNonNull(getConfig().getString("check-for-updates", "true")).equalsIgnoreCase("true")) {
-            updateChecker.checkNow().checkEveryXHours(getConfig().getDouble("check-interval"));
-        } // When set to on-startup, we check right now (delay 0)
-        else if (Objects.requireNonNull(getConfig().getString("check-for-updates", "true")).equalsIgnoreCase("on-startup")) {
-            updateChecker.checkNow();
-        }
-
-        trackBlocks();
+        // Must be registered after all other listeners, so they can still check whether a block was placed by a player
+        BlockTracker.init(this);
+        BlockTracker.addTrackedBlockTypes(treeBlockTypes);
 
         registerFarmLimiterEventListener();
     }
@@ -164,19 +150,6 @@ public class LumberJack extends JavaPlugin {
         } catch (ClassNotFoundException ignored) {
             ignored.printStackTrace();
         }
-    }
-
-    private void trackBlocks() {
-        // Track all player placed logs
-        Collection<Material> trackedBlocks = new HashSet<>();
-        for (String name : treeBlockNames) {
-            Material mat = Enums.getIfPresent(Material.class, name).orNull();
-            if (mat != null) {
-                trackedBlocks.add(mat);
-                //System.out.println("Tracking material " + mat.name());
-            }
-        }
-        BlockTracker.addTrackedBlockTypes(trackedBlocks);
     }
 
     private void showOldConfigWarning() {
@@ -205,7 +178,6 @@ public class LumberJack extends JavaPlugin {
 
         getConfig().addDefault("gravity-enabled-by-default", false);
         getConfig().addDefault("use-pdc",true);
-        getConfig().addDefault("check-for-updates", "true");
         getConfig().addDefault("show-message-again-after-logout", true);
         getConfig().addDefault("attached-logs-fall-down", true);
         getConfig().addDefault("prevent-torch-exploit", true);

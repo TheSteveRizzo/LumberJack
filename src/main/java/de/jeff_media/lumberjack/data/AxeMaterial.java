@@ -5,7 +5,7 @@ import org.bukkit.Material;
 import java.util.Locale;
 
 public enum AxeMaterial {
-    WOOD(1), STONE(2), IRON(3), GOLD(4), DIAMOND(5), NETHERITE(6);
+    WOOD(1), STONE(2), COPPER(3), IRON(4), GOLD(5), DIAMOND(6), NETHERITE(7);
 
     private final int level;
 
@@ -24,6 +24,8 @@ public enum AxeMaterial {
             return WOOD;
         } else if(materialName.startsWith("S")) {
             return STONE;
+        } else if(materialName.startsWith("C")) {
+            return COPPER;
         } else if(materialName.startsWith("I")) {
             return IRON;
         } else if(materialName.startsWith("G")) {

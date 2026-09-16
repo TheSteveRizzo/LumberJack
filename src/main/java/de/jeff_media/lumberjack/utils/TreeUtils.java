@@ -1,14 +1,11 @@
 package de.jeff_media.lumberjack.utils;
 
-import com.google.common.base.Enums;
 import de.jeff_media.lumberjack.LumberJack;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.map.MinecraftFont;
 
 import java.util.ArrayList;
-import java.util.Collection;
 
 public class TreeUtils {
 
@@ -31,6 +28,7 @@ public class TreeUtils {
             case "OAK_LOG":
             case "SPRUCE_LOG":
             case "CHERRY_LOG":
+            case "PALE_OAK_LOG":
                 return new Material[]{
                         Material.DIRT,
                         Material.GRASS_BLOCK,
@@ -38,8 +36,11 @@ public class TreeUtils {
                         Material.COARSE_DIRT,
                         Material.PODZOL,
                         Material.SNOW_BLOCK,
-                        Enums.getIfPresent(Material.class, "ROOTED_DIRT").or(Material.DIRT),
-                        Enums.getIfPresent(Material.class, "MOSS_BLOCK").or(Material.DIRT)}; // TODO: Fuck the duplicates
+                        Material.ROOTED_DIRT,
+                        Material.MOSS_BLOCK,
+                        Material.PALE_MOSS_BLOCK,
+                        Material.MUD,
+                        Material.FARMLAND};
             case "CRIMSON_STEM":
                 return new Material[]{
                         Material.CRIMSON_NYLIUM,
@@ -93,6 +94,10 @@ public class TreeUtils {
             case SPRUCE_LEAVES:
             case STRIPPED_SPRUCE_LOG:
                 return orig == Material.SPRUCE_LOG || orig == Material.STRIPPED_SPRUCE_LOG;
+            case PALE_OAK_LOG:
+            case PALE_OAK_LEAVES:
+            case STRIPPED_PALE_OAK_LOG:
+                return orig == Material.PALE_OAK_LOG || orig == Material.STRIPPED_PALE_OAK_LOG;
         }
         switch (now.name()) {
             case "WARPED_STEM":
@@ -124,12 +129,12 @@ public class TreeUtils {
 
     public static boolean isAboveNonSolidBlock(Block block) {
 
-        for (int height = block.getY() - 1; height >= 0; height--) {
+        for (int height = block.getY() - 1; height >= block.getWorld().getMinHeight(); height--) {
             Block candidate = block.getWorld().getBlockAt(block.getX(), height, block.getZ());
             if (candidate.getType().isSolid() || candidate.getType().name().equals("MANGROVE_ROOTS")) {
                 return true;
             }
-            if (candidate.getType() != Material.AIR) {
+            if (!candidate.getType().isAir()) {
                 return false;
             }
 
@@ -138,7 +143,7 @@ public class TreeUtils {
     }
 
     static String getFlavor(Material mat) {
-        String name = mat.name().toLowerCase().replace("_WOOD","_LOG").replace("_STEM","_LOG").replace("_HYPHAE","_LOG");
+        String name = mat.name().toLowerCase(java.util.Locale.ROOT).replace("_wood","_log").replace("_stem","_log").replace("_hyphae","_log");
         if(!name.contains("_LOG")) return "none";
         if (name.contains("acacia")) {
             return "acacia";
@@ -146,6 +151,8 @@ public class TreeUtils {
             return "birch";
         } else if (name.contains("dark_oak")) {
             return "dark_oak";
+        } else if (name.contains("pale_oak")) {
+            return "pale_oak";
         } else if (name.contains("oak")) {
             return "oak";
         } else if (name.contains("jungle")) {
@@ -156,6 +163,10 @@ public class TreeUtils {
             return "mangrove";
         } else if (name.contains("cherry")) {
             return "cherry";
+        } else if (name.contains("crimson")) {
+            return "crimson";
+        } else if (name.contains("warped")) {
+            return "warped";
         } else {
             return "none";
         }
@@ -235,19 +246,7 @@ public class TreeUtils {
     }
 
     boolean isPartOfTree(Material mat) {
-
-        for (String blockName : main.treeBlockNames) {
-            if (Material.matchMaterial(blockName) != null) {
-                if (Material.matchMaterial(blockName) == mat) {
-                    return true;
-                }
-            } //else {
-            //main.getLogger().warning("Block type not found: " + blockName);
-            // TODO: Build list of Materials only once, then cache it to avoid String->Material conversion on every block break
-            //}
-        }
-
-        return false;
+        return main.treeBlockTypes.contains(mat);
     }
 
     public Block[] getLogsAbove(Block block) {
